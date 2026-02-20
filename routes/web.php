@@ -34,6 +34,31 @@ Route::get('/phpinfo', function() { phpinfo(); });
 
 // Route::redirect('/', '');
 
+require __DIR__.'/tasks.php';
+require __DIR__.'/projects.php';
+require __DIR__.'/notes.php';
+require __DIR__.'/goals.php';
+
 Route::view('/', 'home')->name('home');
 Route::view('/docs', 'docs')->name('docs');
 Route::view('/health', 'health')->name('health');
+Route::view('/docs/auth', 'docs.auth');
+Route::view('/docs/workspace', 'docs.workspace');
+Route::view('/docs/tasks', 'docs.tasks');
+Route::view('/docs/projects', 'docs.projects');
+Route::view('/docs/notes', 'docs.notes');
+Route::view('/docs/goals', 'docs.goals');
+Route::view('/docs/team', 'docs.team');
+Route::view('/docs/integrations', 'docs.integrations');
+Route::view('/docs/notifications', 'docs.notifications');
+Route::view('/docs/settings', 'docs.settings');
+Route::view('/docs/bidding', 'docs.bidding');
+Route::view('/docs/vehicle', 'docs.vehicle');
+Route::view('/docs/inspection', 'docs.inspection');
+Route::view('/docs/user', 'docs.user');
+Route::view('/docs/blog', 'docs.blog');
+Route::view('/docs/contact', 'docs.contact');
+Route::view('/docs/favorite', 'docs.favorite');
+Route::view('/docs/testimonial', 'docs.testimonial');
+Route::view('/docs/ckeditor', 'docs.ckeditor');
+Route::view('/docs/search', 'docs.search');

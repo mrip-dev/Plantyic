@@ -3,6 +3,18 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 
+// Workspace module routes
+require __DIR__.'/workspace.php';
+require __DIR__.'/settings.php';
+require __DIR__.'/notifications.php';
+require __DIR__.'/integrations.php';
+require __DIR__.'/team.php';
+require __DIR__.'/goals.php';
+require __DIR__.'/notes.php';
+require __DIR__.'/projects.php';
+require __DIR__.'/tasks.php';
+require __DIR__.'/push-notifications.php';
+
 // Authentication Routes
 Route::prefix('auth')->group(function () {
     // Public routes
