@@ -27,7 +27,7 @@ Route::prefix('auth')->group(function () {
 Route::get('/health', function () {
     return response()->json([
         'status' => 'success',
-        'message' => 'Zentra API is running',
+        'message' => 'Plantyic API is running',
         'timestamp' => now(),
         'version' => '1.0.0'
     ]);
@@ -37,4 +37,3 @@ Route::middleware('auth:api')->post('logout', [AuthController::class, 'logout'])
 // Admin Panel Routes
 Route::prefix('admin')->middleware(['middleware' => 'auth:api'])->group(function () {});
 Route::group(['middleware' => 'auth:api'], function () {});
- 

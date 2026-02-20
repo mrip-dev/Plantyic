@@ -15,7 +15,7 @@ class RolesAndPermissionsSeeder extends Seeder
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         // ============================================
-        // 1️⃣ CREATE Zentra SPECIFIC PERMISSIONS
+        // 1️⃣ CREATE Plantyic SPECIFIC PERMISSIONS
         // ============================================
 
         $permissions = [
@@ -143,7 +143,7 @@ class RolesAndPermissionsSeeder extends Seeder
         }
 
         // ============================================
-        // 2️⃣ CREATE ROLES FOR Zentra
+        // 2️⃣ CREATE ROLES FOR Plantyic
         // ============================================
 
         $roles = [
@@ -286,14 +286,14 @@ class RolesAndPermissionsSeeder extends Seeder
         }
 
         // ============================================
-        // 3️⃣ CREATE DEMO USERS FOR Zentra
+        // 3️⃣ CREATE DEMO USERS FOR Plantyic
         // ============================================
 
         // Create Super Admin
         $superAdmin = User::updateOrCreate(
-            ['email' => 'superadmin@zentra.com'],
+            ['email' => 'superadmin@plantyic.com'],
             [
-                'name' => 'Zentra Super Admin',
+                'name' => 'Plantyic Super Admin',
                 'password' => bcrypt('password'),
                 'role' => 'Super Admin',
                 'user_type' => 'admin',
@@ -308,9 +308,9 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Create Admin
         $admin = User::updateOrCreate(
-            ['email' => 'admin@zentra.com'],
+            ['email' => 'admin@plantyic.com'],
             [
-                'name' => 'Zentra Admin',
+                'name' => 'Plantyic Admin',
                 'password' => bcrypt('password'),
                 'role' => 'Admin',
                 'user_type' => 'admin',
@@ -325,9 +325,9 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Create Staff
         $staff = User::updateOrCreate(
-            ['email' => 'staff@zentra.com'],
+            ['email' => 'staff@plantyic.com'],
             [
-                'name' => 'Zentra Staff',
+                'name' => 'Plantyic Staff',
                 'password' => bcrypt('password'),
                 'role' => 'Staff',
                 'user_type' => 'staff',
@@ -423,12 +423,12 @@ class RolesAndPermissionsSeeder extends Seeder
         $supervisor->syncRoles(['Worker']);
 
         $this->command->info('============================================');
-        $this->command->info('Zentra PERMISSIONS & ROLES CREATED');
+        $this->command->info('Plantyic PERMISSIONS & ROLES CREATED');
         $this->command->info('============================================');
         $this->command->info('Demo Users Created:');
-        $this->command->info('Super Admin: superadmin@zentra.com / password');
-        $this->command->info('Admin: admin@zentra.com / password');
-        $this->command->info('Staff: staff@zentra.com / password');
+        $this->command->info('Super Admin: superadmin@plantyic.com / password');
+        $this->command->info('Admin: admin@plantyic.com / password');
+        $this->command->info('Staff: staff@plantyic.com / password');
         $this->command->info('Vendor: vendor.moving@demo.com / password');
         $this->command->info('Customer: customer@demo.com / password');
         $this->command->info('Supervisor: supervisor@fastmovers.com / password');

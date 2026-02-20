@@ -33,4 +33,7 @@ Route::get('/test-email', function () {
 Route::get('/phpinfo', function() { phpinfo(); });
 
 // Route::redirect('/', '');
+
 Route::view('/', 'home')->name('home');
+Route::view('/docs', 'docs')->name('docs');
+Route::view('/health', 'health')->name('health');
