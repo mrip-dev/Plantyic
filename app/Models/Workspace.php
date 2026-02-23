@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\User;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -11,6 +12,7 @@ class Workspace extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'name',
         'description',
         'icon',
@@ -35,5 +37,13 @@ class Workspace extends Model
         }
 
         return $workspace;
+    }
+
+    /**
+     * Owner of the workspace
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

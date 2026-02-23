@@ -12,7 +12,7 @@ class WorkspaceController extends Controller
 {
     public function index()
     {
-        $workspaces = Workspace::all();
+        $workspaces = Workspace::where('user_id', auth()->guard('api')->id())->get();
         return $this->apiResponse($workspaces, 'Workspace list fetched successfully');
     }
 
@@ -29,6 +29,11 @@ class WorkspaceController extends Controller
 
     public function update(WorkspaceRequest $request, Workspace $workspace, WorkspaceService $service)
     {
+        /// owenrship check.
+        if ($workspace->user_id !== auth()->guard('api')->id()) {
+            return $this->apiResponse(null, 'Unauthorized access to this workspace.', 403, false);
+        }
+
         // If the code reaches here, the data check has already PASSED.
         DB::beginTransaction();
         try {
@@ -43,6 +48,10 @@ class WorkspaceController extends Controller
 
     public function destroy(Workspace $workspace, WorkspaceService $service)
     {
+        /// owenrship check.
+        if ($workspace->user_id !== auth()->guard('api')->id()) {
+            return $this->apiResponse(null, 'Unauthorized access to this workspace.', 403, false);
+        }
         $service->delete($workspace);
         return $this->apiResponse(null, 'Workspace deleted successfully');
     }
