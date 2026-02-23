@@ -120,9 +120,20 @@
                 <div class="code-block">
                     <div class="code-header"><span class="code-lang">Sample Response</span></div>
                     <pre>{
-    <span class="key">"data"</span>: [
-        { <span class="key">"id"</span>: <span class="str">"ws_01"</span>, <span class="key">"name"</span>: <span class="str">"Marketing Team"</span>, <span class="key">"role"</span>: <span class="str">"admin"</span> },
-        { <span class="key">"id"</span>: <span class="str">"ws_02"</span>, <span class="key">"name"</span>: <span class="str">"Development"</span>, <span class="key">"role"</span>: <span class="str">"member"</span> }
+    "success": true,
+    "message": "Workspace list fetched successfully",
+    "error_code": null,
+    "data": [
+        {
+            "id": 5,
+            "name": "Demo Workspace",
+            "description": "Workspace for testing",
+            "icon": "icon.png",
+            "color": "blue",
+            "plan": "pro",
+            "created_at": "2026-02-20T11:13:37.000000Z",
+            "updated_at": "2026-02-20T11:13:37.000000Z"
+        }
     ]
 }</pre>
                 </div>
@@ -159,9 +170,9 @@
                             <td>Optional. A brief summary of the workspace purpose.</td>
                         </tr>
                         <tr>
-                            <td>slug</td>
+                            <td>color</td>
                             <td>string</td>
-                            <td>Optional. Unique URL identifier (e.g., "majestic-softs").</td>
+                            <td>Optional. The color theme for the workspace (e.g., "blue", "green").</td>
                         </tr>
                     </tbody>
                 </table>

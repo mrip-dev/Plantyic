@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Workspace;
 use App\Http\Requests\Workspace\WorkspaceRequest;
 use App\Services\WorkspaceService;
+use Illuminate\Support\Facades\DB;
 
 class WorkspaceController extends Controller
 {
@@ -28,8 +29,16 @@ class WorkspaceController extends Controller
 
     public function update(WorkspaceRequest $request, Workspace $workspace, WorkspaceService $service)
     {
-        $service->update($workspace, $request->validated());
-        return $this->apiResponse($workspace, 'Workspace updated successfully');
+        // If the code reaches here, the data check has already PASSED.
+        DB::beginTransaction();
+        try {
+            $updatedWorkspace = $service->update($workspace, $request->validated());
+            DB::commit();
+            return $this->apiResponse($updatedWorkspace, 'Workspace updated successfully');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->apiResponse(null, 'Database error occurred.', 500, false);
+        }
     }
 
     public function destroy(Workspace $workspace, WorkspaceService $service)
