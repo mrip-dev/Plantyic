@@ -21,6 +21,14 @@
             <div class="sidebar-section-label">All Endpoints</div>
 
         </div>
+        <div class="sidebar-section">
+            <div class="sidebar-section-label">Workspace Module</div>
+            <a href="#list-workspaces" class="nav-item"><span class="nav-dot"></span> List All Workspaces</a>
+            <a href="#create-workspace" class="nav-item"><span class="nav-dot"></span> Create Workspace</a>
+            <a href="#workspace-details" class="nav-item"><span class="nav-dot"></span> Get Details</a>
+            <a href="#update-workspace" class="nav-item"><span class="nav-dot"></span> Update Workspace</a>
+            <a href="#delete-workspace" class="nav-item"><span class="nav-dot"></span> Delete / Archive</a>
+        </div>
 
 
     </aside>
@@ -99,11 +107,101 @@
                     </pre>
                 </div>
             </section>
+            <section class="section" id="list-workspaces">
+                <div class="section-header">
+                    <div class="section-number">03</div>
+                    <div>
+                        <div class="section-title">List Workspaces</div>
+                        <div class="section-subtitle"><span class="method get">GET</span> /api/workspace</div>
+                    </div>
+                </div>
+                <p class="prose">Returns a list of all workspaces the authenticated user has access to.</p>
 
+                <div class="code-block">
+                    <div class="code-header"><span class="code-lang">Sample Response</span></div>
+                    <pre>{
+    <span class="key">"data"</span>: [
+        { <span class="key">"id"</span>: <span class="str">"ws_01"</span>, <span class="key">"name"</span>: <span class="str">"Marketing Team"</span>, <span class="key">"role"</span>: <span class="str">"admin"</span> },
+        { <span class="key">"id"</span>: <span class="str">"ws_02"</span>, <span class="key">"name"</span>: <span class="str">"Development"</span>, <span class="key">"role"</span>: <span class="str">"member"</span> }
+    ]
+}</pre>
+                </div>
+            </section>
+
+            <section class="section" id="create-workspace">
+                <div class="section-header">
+                    <div class="section-number">04</div>
+                    <div>
+                        <div class="section-title">Create Workspace</div>
+                        <div class="section-subtitle"><span class="method post">POST</span> /api/workspace</div>
+                    </div>
+                </div>
+                <p class="prose">Initialize a new workspace. The creator is automatically assigned the <span class="role-chip super">Super Admin</span> role for this workspace.</p>
+
+                <p class="params-label">Body Parameters</p>
+                <table class="params-table">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>name</td>
+                            <td>string</td>
+                            <td>Required. The display name of the workspace.</td>
+                        </tr>
+                        <tr>
+                            <td>description</td>
+                            <td>string</td>
+                            <td>Optional. A brief summary of the workspace purpose.</td>
+                        </tr>
+                        <tr>
+                            <td>slug</td>
+                            <td>string</td>
+                            <td>Optional. Unique URL identifier (e.g., "majestic-softs").</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="section" id="workspace-details">
+                <div class="section-header">
+                    <div class="section-number">05</div>
+                    <div>
+                        <div class="section-title">Get Workspace Details</div>
+                        <div class="section-subtitle"><span class="method get">GET</span> /api/workspace/{id}</div>
+                    </div>
+                </div>
+                <p class="prose">Fetch metadata, member counts, and recent activity for a specific workspace.</p>
+            </section>
+
+            <section class="section" id="update-workspace">
+                <div class="section-header">
+                    <div class="section-number">06</div>
+                    <div>
+                        <div class="section-title">Update Workspace</div>
+                        <div class="section-subtitle"><span class="method put">PUT</span> /api/workspace/{id}</div>
+                    </div>
+                </div>
+                <p class="prose">Modify settings, names, or branding for an existing workspace.</p>
+            </section>
+
+            <section class="section" id="delete-workspace">
+                <div class="section-header">
+                    <div class="section-number">07</div>
+                    <div>
+                        <div class="section-title">Delete Workspace</div>
+                        <div class="section-subtitle"><span class="method delete">DELETE</span> /api/workspace/{id}</div>
+                    </div>
+                </div>
+                <p class="prose" style="color:#ff5555">Warning: This action is permanent and will remove all associated projects and data.</p>
+            </section>
 
         </div><!-- /content -->
     </main>
 </div>
 
 @endsection
-
