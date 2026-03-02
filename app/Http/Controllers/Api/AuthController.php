@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\User;
 use App\Models\Package;
+use App\Services\OnboardingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
@@ -534,5 +535,70 @@ class AuthController extends Controller
             'message' => 'Email verified successfully',
             'user' => $this->getUserResponse($user)
         ]);
+    }
+
+    /**
+     * Complete user onboarding with organization, workspace, and projects
+     */
+    public function completeOnboarding(Request $request, OnboardingService $onboardingService)
+    {
+        $validator = Validator::make($request->all(), [
+            'organization.name' => 'required|string|max:255',
+            'organization.description' => 'nullable|string|max:1000',
+            'workspace.name' => 'required|string|max:255',
+            'workspace.description' => 'nullable|string|max:1000',
+            'workspace.icon' => 'nullable|string|max:100',
+            'workspace.color' => 'nullable|string|max:50',
+            'workspace.plan' => 'nullable|string|in:free,pro,enterprise',
+            'project.name' => 'required|string|max:255',
+            'project.description' => 'nullable|string|max:1000',
+            'project.status' => 'nullable|string|in:active,inactive,archived',
+            'onboarding.questions' => 'nullable|array',
+            'onboarding.answers' => 'nullable|array',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $user = auth('api')->user();
+
+            if (!$user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'User not authenticated'
+                ], 401);
+            }
+
+            // Complete onboarding using service
+            $result = $onboardingService->completeOnboarding($user, $request->all());
+
+            if ($result['status'] === 'error') {
+                return response()->json($result, 500);
+            }
+
+            // Update user's onboarding status
+            $user->update([
+                'onboarding_completed' => true,
+                'onboarding_completed_at' => Carbon::now()
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => $result['message'],
+                'data' => $result['data']
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Onboarding failed: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

@@ -32,6 +32,7 @@ Route::prefix('auth')->group(function () {
         Route::put('/profile', [AuthController::class, 'updateProfile']);
         Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
         Route::get('/vendor/status', [AuthController::class, 'checkVendorStatus']);
+        Route::post('/onboarding/complete', [AuthController::class, 'completeOnboarding']);
     });
 });
 

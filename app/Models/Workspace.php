@@ -46,4 +46,47 @@ class Workspace extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * Organization that owns this workspace
+     */
+    public function organization()
+    {
+        return $this->belongsTo(Organization::class);
+    }
+
+    /**
+     * Projects in this workspace
+     */
+    public function projects()
+    {
+        return $this->hasMany(Project::class);
+    }
+
+    /**
+     * Generate slug from name
+     */
+    public static function generateSlug($name, $organizationId = null): string
+    {
+        $slug = \Illuminate\Support\Str::slug($name);
+        $originalSlug = $slug;
+        $count = 1;
+
+        // Check if slug already exists (optional: filter by organization)
+        $query = self::where('slug', $slug);
+        if ($organizationId) {
+            $query->where('organization_id', $organizationId);
+        }
+
+        while ($query->exists()) {
+            $slug = $originalSlug . '-' . $count;
+            $count++;
+            $query = self::where('slug', $slug);
+            if ($organizationId) {
+                $query->where('organization_id', $organizationId);
+            }
+        }
+
+        return $slug;
+    }
 }
