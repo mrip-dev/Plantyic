@@ -579,7 +579,10 @@ class AuthController extends Controller
             $result = $onboardingService->completeOnboarding($user, $request->all());
 
             if ($result['status'] === 'error') {
-                return response()->json($result, 500);
+                // Return 422 for duplicate/validation errors, 500 for other errors
+                $statusCode = (strpos($result['message'], 'duplicate') !== false ||
+                              strpos($result['message'], 'already exists') !== false) ? 422 : 500;
+                return response()->json($result, $statusCode);
             }
 
             // Update user's onboarding status
@@ -597,7 +600,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Onboarding failed: ' . $e->getMessage()
+                'message' => 'An unexpected error occurred during onboarding. Please try again.'
             ], 500);
         }
     }

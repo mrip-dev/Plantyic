@@ -69,12 +69,55 @@ class OnboardingService
 
         } catch (\Exception $e) {
             DB::rollBack();
+
+            // Provide human-readable error messages
+            $message = $this->getHumanReadableError($e);
+
             return [
                 'status' => 'error',
-                'message' => 'Onboarding failed: ' . $e->getMessage(),
-                'error' => $e
+                'message' => $message,
             ];
         }
+    }
+
+    /**
+     * Get human-readable error message from exception
+     *
+     * @param \Exception $e
+     * @return string
+     */
+    private function getHumanReadableError(\Exception $e): string
+    {
+        $exceptionMessage = $e->getMessage();
+
+        // Check for duplicate slug errors
+        if (strpos($exceptionMessage, 'Duplicate entry') !== false) {
+            if (strpos($exceptionMessage, 'workspaces_slug_unique') !== false ||
+                strpos($exceptionMessage, 'workspaces') !== false && strpos($exceptionMessage, 'slug') !== false) {
+                return 'A workspace with this name already exists in your organization. Please use a different name.';
+            }
+            if (strpos($exceptionMessage, 'projects_slug_unique') !== false ||
+                strpos($exceptionMessage, 'projects') !== false && strpos($exceptionMessage, 'slug') !== false) {
+                return 'A project with this name already exists in your workspace. Please use a different name.';
+            }
+            if (strpos($exceptionMessage, 'organizations_slug_unique') !== false) {
+                return 'An organization with this name already exists. Please use a different name.';
+            }
+            return 'A duplicate entry was found. Please use different names for your organization, workspace, or project.';
+        }
+
+        // Check for foreign key constraint errors
+        if (strpos($exceptionMessage, 'foreign key') !== false) {
+            return 'There was an issue with the organization or workspace relationship. Please try again.';
+        }
+
+        // Check for database connection errors
+        if (strpos($exceptionMessage, 'SQLSTATE') !== false || strpos($exceptionMessage, 'Connection') !== false) {
+            return 'Database connection error. Please try again later.';
+        }
+
+        // Default error message (don't expose raw SQL errors to frontend)
+        return 'An error occurred while setting up your workspace. Please try again with different names.';
     }
 
     /**

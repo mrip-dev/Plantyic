@@ -63,3 +63,4 @@ class Project extends Model
 
         return $slug;
     }
+}
