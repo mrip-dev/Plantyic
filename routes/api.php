@@ -14,6 +14,7 @@ require __DIR__.'/notes.php';
 require __DIR__.'/projects.php';
 require __DIR__.'/tasks.php';
 require __DIR__.'/push-notifications.php';
+require __DIR__.'/organization.php';
 
 // Authentication Routes
 Route::prefix('auth')->group(function () {

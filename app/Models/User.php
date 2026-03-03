@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
@@ -231,7 +232,8 @@ class User extends Authenticatable implements JWTSubject
         'profile_completed',
         'email_verified_at',
         'last_login_at',
-        'device_token'
+        'device_token',
+        'default_organization_id',
     ];
 
     /**
@@ -281,6 +283,23 @@ class User extends Authenticatable implements JWTSubject
     public function workspaces(): HasMany
     {
         return $this->hasMany(\App\Models\Workspace::class);
+    }
+
+    public function organizations(): HasMany
+    {
+        return $this->hasMany(Organization::class);
+    }
+
+    public function memberOrganizations(): BelongsToMany
+    {
+        return $this->belongsToMany(Organization::class, 'organization_members')
+            ->withPivot(['id', 'role', 'joined_at'])
+            ->withTimestamps();
+    }
+
+    public function defaultOrganization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'default_organization_id');
     }
 
 }
