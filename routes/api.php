@@ -23,6 +23,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/register/vendor', [AuthController::class, 'registerVendor']);
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
     Route::post('/refresh', [AuthController::class, 'refresh']);
 
