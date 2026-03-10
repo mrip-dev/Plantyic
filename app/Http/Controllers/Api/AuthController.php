@@ -61,7 +61,7 @@ class AuthController extends Controller
                 'is_approved' => true, // Customers are auto-approved
                 'profile_completed' => true,
                 'status' => 'active',
-                'email_verified_at' => Carbon::now(),
+                // Do not auto-verify email; send verification OTP below
             ]);
 
             // Assign customer role
@@ -72,6 +72,37 @@ class AuthController extends Controller
 
             // Generate invoice if package is selected
             $invoice = null;
+
+            // Send email verification OTP
+            try {
+                // Generate 6-digit OTP
+                $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                $expiresAt = Carbon::now()->addMinutes(10); // OTP valid for 10 minutes
+
+                // Remove any existing verification OTPs for this email
+                DB::table('email_verification_tokens')->where('email', $request->email)->delete();
+
+                // Store OTP (hashed) for verification
+                DB::table('email_verification_tokens')->insert([
+                    'email' => $request->email,
+                    'otp_hash' => Hash::make($otp),
+                    'otp_expires_at' => $expiresAt,
+                    'otp_verified' => false,
+                    'token' => Str::random(60),
+                    'created_at' => Carbon::now(),
+                ]);
+
+                Mail::send('emails.verify', ['otp' => $otp, 'user' => $user], function ($message) use ($request) {
+                    $message->to($request->email)->subject('Verify your email address');
+                });
+
+                $verificationEmailSent = true;
+            } catch (\Exception $mailException) {
+                Log::error('Failed to send registration verification email: ' . $mailException->getMessage());
+                // Remove OTP record if sending failed
+                DB::table('email_verification_tokens')->where('email', $request->email)->delete();
+                $verificationEmailSent = false;
+            }
 
 
             DB::commit();
@@ -84,6 +115,7 @@ class AuthController extends Controller
                 'expires_in' => auth('api')->factory()->getTTL() * 60,
                 'user' => $this->getUserResponse($user),
                 'invoice' => $invoice,
+                'verification_email_sent' => isset($verificationEmailSent) ? $verificationEmailSent : false,
             ], 201);
 
         } catch (\Exception $e) {
@@ -152,7 +184,7 @@ class AuthController extends Controller
                 'is_approved' => false, // Vendors need admin approval
                 'profile_completed' => true,
                 'status' => 'pending',
-                'email_verified_at' => Carbon::now(),
+                // Do not auto-verify email; send verification OTP below
             ];
 
             // Remove null values for optional fields
@@ -168,6 +200,37 @@ class AuthController extends Controller
             // Generate token (vendor can login but will see pending status)
             $token = JWTAuth::fromUser($user);
 
+            // Send email verification OTP for vendor
+            try {
+                // Generate 6-digit OTP
+                $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                $expiresAt = Carbon::now()->addMinutes(10); // OTP valid for 10 minutes
+
+                // Remove any existing verification OTPs for this email
+                DB::table('email_verification_tokens')->where('email', $request->email)->delete();
+
+                // Store OTP (hashed) for verification
+                DB::table('email_verification_tokens')->insert([
+                    'email' => $request->email,
+                    'otp_hash' => Hash::make($otp),
+                    'otp_expires_at' => $expiresAt,
+                    'otp_verified' => false,
+                    'token' => Str::random(60),
+                    'created_at' => Carbon::now(),
+                ]);
+
+                Mail::send('emails.verify', ['otp' => $otp, 'user' => $user], function ($message) use ($request) {
+                    $message->to($request->email)->subject('Verify your email address');
+                });
+
+                $verificationEmailSent = true;
+            } catch (\Exception $mailException) {
+                Log::error('Failed to send vendor registration verification email: ' . $mailException->getMessage());
+                // Remove OTP record if sending failed
+                DB::table('email_verification_tokens')->where('email', $request->email)->delete();
+                $verificationEmailSent = false;
+            }
+
             DB::commit();
 
             return response()->json([
@@ -178,6 +241,7 @@ class AuthController extends Controller
                 'expires_in' => auth('api')->factory()->getTTL() * 60,
                 'user' => $this->getUserResponse($user),
                 'requires_approval' => true,
+                'verification_email_sent' => isset($verificationEmailSent) ? $verificationEmailSent : false,
             ], 201);
 
         } catch (\Exception $e) {
@@ -655,17 +719,149 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $user = auth('api')->user();
+        try {
+            $user = auth('api')->user();
 
-        // TODO: Implement actual verification code check
-        // For now, just mark as verified
-        $user->update(['email_verified_at' => Carbon::now()]);
+            if (!$user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'User not authenticated'
+                ], 401);
+            }
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Email verified successfully',
-            'user' => $this->getUserResponse($user)
+            // Get latest OTP record for this email
+            $resetRecord = DB::table('email_verification_tokens')
+                ->where('email', $user->email)
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            if (!$resetRecord) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No verification request found for this email'
+                ], 404);
+            }
+
+            // Check if OTP has expired
+            if (isset($resetRecord->otp_expires_at) && Carbon::parse($resetRecord->otp_expires_at)->isPast()) {
+                DB::table('email_verification_tokens')->where('email', $user->email)->delete();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Verification code has expired. Please request a new one.'
+                ], 410);
+            }
+
+            // Verify OTP
+            $storedHash = $resetRecord->otp_hash ?? ($resetRecord->otp ?? null);
+            if (!Hash::check($request->verification_code, $storedHash)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid verification code'
+                ], 401);
+            }
+
+            // Mark OTP as verified and update user
+            DB::table('email_verification_tokens')
+                ->where('email', $user->email)
+                ->update([
+                    'otp_verified' => true,
+                    'verified_at' => Carbon::now()
+                ]);
+
+            $user->update(['email_verified_at' => Carbon::now()]);
+
+            /// Delete OTP record after successful verification
+            DB::table('email_verification_tokens')->where('email', $user->email)->delete();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Email verified successfully',
+                'user' => $this->getUserResponse($user)
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'OTP verification failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Resend email verification OTP
+     */
+    public function resendVerification(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email|exists:users,email',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $email = $request->email;
+            $user = User::where('email', $email)->first();
+
+            // Check rate-limit: prevent resending too frequently (60s)
+            $last = DB::table('email_verification_tokens')
+                ->where('email', $email)
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            if ($last && isset($last->created_at) && Carbon::parse($last->created_at)->addSeconds(60)->isFuture()) {
+                $retryAfter = Carbon::parse($last->created_at)->addSeconds(60)->diffInSeconds(Carbon::now());
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Too many requests. Please wait before requesting another code.',
+                    'retry_after_seconds' => $retryAfter
+                ], 429);
+            }
+
+            // Generate and store new OTP
+            $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $expiresAt = Carbon::now()->addMinutes(10);
+
+            DB::table('email_verification_tokens')->where('email', $email)->delete();
+            DB::table('email_verification_tokens')->insert([
+                'email' => $email,
+                'otp_hash' => Hash::make($otp),
+                'otp_expires_at' => $expiresAt,
+                'otp_verified' => false,
+                'token' => Str::random(60),
+                'created_at' => Carbon::now(),
+            ]);
+
+            try {
+                Mail::send('emails.verify', ['otp' => $otp, 'user' => $user], function ($message) use ($email) {
+                    $message->to($email)->subject('Verify your email address');
+                });
+            } catch (\Exception $mailException) {
+                Log::error('Failed to send verification email: ' . $mailException->getMessage());
+                DB::table('email_verification_tokens')->where('email', $email)->delete();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Failed to send verification email. Please try again.'
+                ], 500);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Verification code resent',
+                'otp_expires_in' => 600
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to resend verification code: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

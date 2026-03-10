@@ -21,6 +21,7 @@ Route::prefix('auth')->group(function () {
     // Public routes
     Route::post('/register/customer', [AuthController::class, 'registerCustomer']);
     Route::post('/register/vendor', [AuthController::class, 'registerVendor']);
+    Route::post('/resend-verification', [AuthController::class, 'resendVerification']);
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
