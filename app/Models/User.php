@@ -234,6 +234,8 @@ class User extends Authenticatable implements JWTSubject
         'last_login_at',
         'device_token',
         'default_organization_id',
+        'onboarding_completed',
+        'onboarding_completed_at'
     ];
 
     /**
@@ -261,6 +263,8 @@ class User extends Authenticatable implements JWTSubject
             'wallet_balance' => 'decimal:2',
             'is_approved' => 'boolean',
             'profile_completed' => 'boolean',
+            'onboarding_completed' => 'boolean',
+            'onboarding_completed_at' => 'datetime',
             'service_area' => 'array', // For multiple service areas
         ];
     }

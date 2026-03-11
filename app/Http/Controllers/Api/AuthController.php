@@ -683,6 +683,8 @@ class AuthController extends Controller
             'company_name' => $user->company_name,
             'is_approved' => (bool) $user->is_approved,
             'profile_completed' => (bool) $user->profile_completed,
+            'onboarding_completed' => (bool) $user->onboarding_completed,
+            'onboarding_completed_at' => $user->onboarding_completed_at,
             'status' => $user->status,
             'country' => $user->country,
             'state' => $user->state,
@@ -696,9 +698,10 @@ class AuthController extends Controller
             'last_login_at' => $user->last_login_at,
             'created_at' => $user->created_at,
             'updated_at' => $user->updated_at,
+            'profile_completion_percentage' => $user->profileCompletionPercentage(),
             'roles' => $user->getRoleNames(),
             'permissions' => $user->getAllPermissions()->pluck('name'),
-            'profile_completion_percentage' => $user->profileCompletionPercentage(),
+
         ];
     }
 
