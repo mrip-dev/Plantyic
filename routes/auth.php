@@ -23,6 +23,10 @@ Route::prefix('auth')->group(function () {
         Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
         Route::get('/vendor/status', [AuthController::class, 'checkVendorStatus']);
         Route::post('/onboarding/complete', [AuthController::class, 'completeOnboarding']);
+
+        // Account deletion routes
+        Route::delete('/account', [AuthController::class, 'deleteMyAccount']);
+        Route::delete('/users/{id}', [AuthController::class, 'deleteUser']);
     });
 });
 Route::middleware('auth:api')->post('logout', [AuthController::class, 'logout']);

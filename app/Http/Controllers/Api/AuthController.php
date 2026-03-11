@@ -922,16 +922,206 @@ class AuthController extends Controller
             ]);
 
             return response()->json([
-                'status' => 'success',
+                'status'  => 'success',
                 'message' => $result['message'],
-                'data' => $result['data']
+                'data'    => $result['data']
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'An unexpected error occurred during onboarding. Please try again.'
             ], 500);
         }
+    }
+
+    /**
+     * Delete the authenticated user's own account (self-delete).
+     * Requires password confirmation for security.
+     */
+    public function deleteMyAccount(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'password' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Validation failed',
+                'errors'  => $validator->errors()
+            ], 422);
+        }
+
+        $user = auth('api')->user();
+
+        if (!$user) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'User not authenticated'
+            ], 401);
+        }
+
+        // Verify password before deletion
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Incorrect password. Please enter your current password to confirm account deletion.'
+            ], 403);
+        }
+
+        try {
+            // Step 1: Delete all user data in a single atomic transaction.
+            // If anything fails here, the transaction rolls back and nothing is deleted.
+            DB::transaction(function () use ($user) {
+                $this->purgeUser($user);
+            });
+
+            // Step 2: Only invalidate the JWT AFTER the transaction has committed.
+            // This ensures we never end up with an invalidated token but data still in DB.
+            // JWT invalidation is best-effort (it cannot be rolled back), so we just log on failure.
+            try {
+                JWTAuth::invalidate(JWTAuth::getToken());
+            } catch (\Exception $e) {
+                Log::warning('Could not invalidate JWT after account deletion for user: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Your account and all associated data have been permanently deleted.'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Account deletion failed for user ' . $user->id . ': ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Account deletion failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Admin: Delete any user by ID along with all their related data.
+     */
+    public function deleteUser(Request $request, $id)
+    {
+        $admin = auth('api')->user();
+
+        if (!$admin || !$admin->isAdmin()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Access denied. Admin privileges required.'
+            ], 403);
+        }
+
+        if ((int) $id === $admin->id) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'You cannot delete your own account via this endpoint. Use DELETE /auth/account instead.'
+            ], 422);
+        }
+
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'User not found.'
+            ], 404);
+        }
+
+        try {
+            $deletedInfo = ['id' => $user->id, 'name' => $user->name, 'email' => $user->email];
+
+            DB::transaction(function () use ($user) {
+                $this->purgeUser($user);
+            });
+
+            Log::info('Admin ' . $admin->id . ' deleted user ' . $id);
+
+            return response()->json([
+                'status'       => 'success',
+                'message'      => 'User and all associated data have been permanently deleted.',
+                'deleted_user' => $deletedInfo
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Admin user deletion failed for user ' . $id . ': ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'User deletion failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Purge a user and all their related data.
+     * Deletion order follows the ownership hierarchy:
+     *   user → organizations → workspaces → projects → tasks
+     *
+     * Must be called inside a DB::transaction().
+     */
+    private function purgeUser(User $user): void
+    {
+        $userId = $user->id;
+        $email  = $user->email;
+
+        // ── Level 0: Auth / session tokens ──────────────────────────────────
+        DB::table('email_verification_tokens')->where('email', $email)->delete();
+        DB::table('password_reset_tokens')->where('email', $email)->delete();
+
+        // ── Level 0: Notifications ───────────────────────────────────────────
+        DB::table('notifications')
+            ->where('notifiable_id', $userId)
+            ->where('notifiable_type', User::class)
+            ->delete();
+
+        // ── Level 1: Collect organization IDs owned by this user ─────────────
+        $orgIds = DB::table('organizations')
+            ->where('user_id', $userId)
+            ->pluck('id')
+            ->toArray();
+
+        if (!empty($orgIds)) {
+            // ── Level 2: Collect workspace IDs inside those organizations ────
+            $workspaceIds = DB::table('workspaces')
+                ->whereIn('organization_id', $orgIds)
+                ->pluck('id')
+                ->toArray();
+
+            if (!empty($workspaceIds)) {
+                // ── Level 3: Collect project IDs inside those workspaces ─────
+                $projectIds = DB::table('projects')
+                    ->whereIn('workspace_id', $workspaceIds)
+                    ->pluck('id')
+                    ->toArray();
+
+                if (!empty($projectIds)) {
+                    // ── Level 4: Delete tasks inside those projects ──────────
+                    DB::table('tasks')->whereIn('project_id', $projectIds)->delete();
+
+                    // ── Level 3: Delete projects ─────────────────────────────
+                    DB::table('projects')->whereIn('id', $projectIds)->delete();
+                }
+
+                // ── Level 2: Delete workspaces ────────────────────────────────
+                DB::table('workspaces')->whereIn('id', $workspaceIds)->delete();
+            }
+
+            // ── Level 1: Remove organization members, then organizations ──────
+            DB::table('organization_members')->whereIn('organization_id', $orgIds)->delete();
+            DB::table('organizations')->whereIn('id', $orgIds)->delete();
+        }
+
+        // ── Remove the user from any organizations they were a member of ──────
+        // (covers orgs they joined but didn't own)
+        DB::table('organization_members')->where('user_id', $userId)->delete();
+
+        // ── Spatie roles & permissions ────────────────────────────────────────
+        $user->roles()->detach();
+        $user->permissions()->detach();
+
+        // ── Finally delete the user record ────────────────────────────────────
+        $user->delete();
     }
 }
