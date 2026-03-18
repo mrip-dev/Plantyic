@@ -354,8 +354,16 @@ class AuthController extends Controller
         try {
             // Handle photo upload
             if ($request->hasFile('photo')) {
-                $path = $request->file('photo')->store('profiles', 'public');
-                $request->merge(['photo' => $path]);
+                $dataToUpdate['photo'] = $request->file('photo')->store('profiles', 'public');
+            }
+            if ($request->hasFile('id_copy_front')) {
+                $dataToUpdate['id_copy_front'] = $request->file('id_copy_front')->store('documents', 'public');
+            }
+            if ($request->hasFile('id_copy_back')) {
+                $dataToUpdate['id_copy_back'] = $request->file('id_copy_back')->store('documents', 'public');
+            }
+            if ($request->hasFile('trade_license_copy')) {
+                $dataToUpdate['trade_license_copy'] = $request->file('trade_license_copy')->store('documents', 'public');
             }
 
             // Update user
@@ -367,17 +375,11 @@ class AuthController extends Controller
             // Update profile completion status
             $user->update(['profile_completed' => true]);
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Profile updated successfully',
-                'user' => $this->getUserResponse($user)
-            ]);
+        //    apiResponse
+        return $this->apiResponse($this->getUserResponse($user), 'Profile updated successfully');
 
         } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Profile update failed: ' . $e->getMessage()
-            ], 500);
+            return $this->apiResponse(null, 'Profile update failed: ' . $e->getMessage(), null, false, 500);
         }
     }
 
@@ -1051,6 +1053,44 @@ class AuthController extends Controller
                 'status'  => 'error',
                 'message' => 'User deletion failed: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Update user password
+     */
+    public function updatePassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:6|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = auth('api')->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Current password does not match'
+            ], 400);
+        }
+
+        try {
+            $user->update([
+                'password' => Hash::make($request->password)
+            ]);
+
+            return $this->apiResponse(null, 'Password updated successfully');
+        } catch (\Exception $e) {
+            return $this->apiResponse(null, 'Failed to update password: ' . $e->getMessage(), null, false, 500);
         }
     }
 

@@ -19,7 +19,8 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:api')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/profile', [AuthController::class, 'profile']);
-        Route::put('/profile', [AuthController::class, 'updateProfile']);
+        Route::post('/update-profile', [AuthController::class, 'updateProfile']);
+        Route::post('/update-password', [AuthController::class, 'updatePassword']);
         Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
         Route::get('/vendor/status', [AuthController::class, 'checkVendorStatus']);
         Route::post('/onboarding/complete', [AuthController::class, 'completeOnboarding']);
