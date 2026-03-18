@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\User;
 use App\Models\Package;
 use App\Services\OnboardingService;
+use App\Services\FileUploadService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
@@ -328,7 +329,7 @@ class AuthController extends Controller
     /**
      * Update user profile
      */
-    public function updateProfile(Request $request)
+    public function updateProfile(Request $request, FileUploadService $fileUploadService)
     {
         $user = auth('api')->user();
 
@@ -352,25 +353,26 @@ class AuthController extends Controller
         }
 
         try {
-            // Handle photo upload
+            $dataToUpdate = $request->only([
+                'name', 'phone', 'country', 'state', 'address', 'company_name', 'bio'
+            ]);
+
+            // Handle file uploads natively via FileUploadService
             if ($request->hasFile('photo')) {
-                $dataToUpdate['photo'] = $request->file('photo')->store('profiles', 'public');
+                $dataToUpdate['photo'] = $fileUploadService->upload($request->file('photo'), 'profiles', $user->photo);
             }
             if ($request->hasFile('id_copy_front')) {
-                $dataToUpdate['id_copy_front'] = $request->file('id_copy_front')->store('documents', 'public');
+                $dataToUpdate['id_copy_front'] = $fileUploadService->upload($request->file('id_copy_front'), 'documents', $user->id_copy_front);
             }
             if ($request->hasFile('id_copy_back')) {
-                $dataToUpdate['id_copy_back'] = $request->file('id_copy_back')->store('documents', 'public');
+                $dataToUpdate['id_copy_back'] = $fileUploadService->upload($request->file('id_copy_back'), 'documents', $user->id_copy_back);
             }
             if ($request->hasFile('trade_license_copy')) {
-                $dataToUpdate['trade_license_copy'] = $request->file('trade_license_copy')->store('documents', 'public');
+                $dataToUpdate['trade_license_copy'] = $fileUploadService->upload($request->file('trade_license_copy'), 'documents', $user->trade_license_copy);
             }
 
             // Update user
-            $user->update($request->only([
-                'name', 'phone', 'photo', 'country',
-                'state', 'address', 'company_name', 'bio'
-            ]));
+            $user->update($dataToUpdate);
 
             // Update profile completion status
             $user->update(['profile_completed' => true]);
