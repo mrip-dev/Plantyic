@@ -4,21 +4,25 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use App\Models\User;
-use App\Models\TeamMember;
-use App\Models\Project;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Team extends Model
+class TeamMember extends Model
 {
     use HasFactory;
 
     protected $fillable = [
+        'team_id',
         'user_id',
         'name',
-        'color'
+        'email',
+        'role',
+        'department',
+        'status',
+        'tasks_assigned',
+        'tasks_completed',
+        'invitation_status',
     ];
+
     /**
      * Customizing the data check for Route Model Binding.
      */
@@ -30,7 +34,7 @@ class Team extends Model
             // This stops execution and returns a clean JSON error immediately
             abort(response()->json([
                 'success' => false,
-                'message' => "Team with ID ($value) not found. Please check the ID and try again.",
+                'message' => "Team member with ID ($value) not found. Please check the ID and try again.",
                 'error_code' => 404,
                 'data'    => null
             ], 404));
@@ -38,20 +42,13 @@ class Team extends Model
 
         return $workspace;
     }
+    public function team(): BelongsTo
+    {
+        return $this->belongsTo(Team::class);
+    }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function teamMembers(): HasMany
-    {
-        return $this->hasMany(TeamMember::class);
-    }
-
-    public function projects(): BelongsToMany
-    {
-        return $this->belongsToMany(Project::class, 'team_projects')
-            ->withTimestamps();
     }
 }

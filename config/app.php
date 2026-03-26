@@ -53,9 +53,7 @@ return [
     */
 
     'url' => env('APP_URL', 'http://localhost'),
-    'frontend_url_live' => env('FRONT_END_URL_LIVE', 'http://crm.caartl.com'),
-    'frontend_url_local' => env('FRONT_END_URL_LOCAL', 'http://localhost:8080'),
-
+    'front_url' => env('FRONT_URL', 'http://localhost:3000'),
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

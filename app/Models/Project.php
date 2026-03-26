@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Project extends Model
 {
@@ -12,6 +13,7 @@ class Project extends Model
 
     protected $fillable = [
         'workspace_id',
+        'team_id',
         'name',
         'slug',
         'description',
@@ -35,6 +37,12 @@ class Project extends Model
     public function workspace()
     {
         return $this->belongsTo(Workspace::class);
+    }
+
+    public function teams(): BelongsToMany
+    {
+        return $this->belongsToMany(Team::class, 'team_projects')
+            ->withTimestamps();
     }
 
     /**

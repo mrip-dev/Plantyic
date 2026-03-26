@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Invoice;
 use App\Models\User;
-use App\Models\Package;
 use App\Services\OnboardingService;
 use App\Services\FileUploadService;
+use App\Services\TeamService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
@@ -18,18 +17,20 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use InvalidArgumentException;
 
 class AuthController extends Controller
 {
     /**
      * Register a new customer
      */
-    public function registerCustomer(Request $request)
+    public function registerCustomer(Request $request, TeamService $teamService)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:6|confirmed',
+            'invitation_token' => 'nullable|string|max:255',
             'phone' => 'required|string|max:20',
             'country' => 'nullable|string|max:100',
             'state' => 'nullable|string|max:100',
@@ -67,6 +68,9 @@ class AuthController extends Controller
 
             // Assign customer role
             $user->assignRole('Customer');
+
+            // Link invited user to pending team/project invitations if present.
+            $teamService->acceptPendingInvitationsForUser($user, $request->invitation_token);
 
             // Generate token
             $token = JWTAuth::fromUser($user);
@@ -119,6 +123,12 @@ class AuthController extends Controller
                 'verification_email_sent' => isset($verificationEmailSent) ? $verificationEmailSent : false,
             ], 201);
 
+        } catch (InvalidArgumentException $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -131,12 +141,13 @@ class AuthController extends Controller
     /**
      * Register a new vendor (individual or company)
      */
-    public function registerVendor(Request $request)
+    public function registerVendor(Request $request, TeamService $teamService)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:6|confirmed',
+            'invitation_token' => 'nullable|string|max:255',
             'phone' => 'required|string|max:20',
             'user_type' => 'required|in:vendor_individual,vendor_company',
             'vendor_type' => 'required|in:moving_company,transportation,packing_material,manpower,storage,local_moving,international_moving',
@@ -198,6 +209,9 @@ class AuthController extends Controller
             // Assign vendor role
             $user->assignRole('Vendor');
 
+            // Link invited user to pending team/project invitations if present.
+            $teamService->acceptPendingInvitationsForUser($user, $request->invitation_token);
+
             // Generate token (vendor can login but will see pending status)
             $token = JWTAuth::fromUser($user);
 
@@ -245,6 +259,12 @@ class AuthController extends Controller
                 'verification_email_sent' => isset($verificationEmailSent) ? $verificationEmailSent : false,
             ], 201);
 
+        } catch (InvalidArgumentException $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -1099,7 +1119,7 @@ class AuthController extends Controller
     /**
      * Purge a user and all their related data.
      * Deletion order follows the ownership hierarchy:
-     *   user → organizations → workspaces → projects → tasks
+        *   user -> organizations -> workspaces -> projects -> tasks
      *
      * Must be called inside a DB::transaction().
      */
@@ -1108,62 +1128,62 @@ class AuthController extends Controller
         $userId = $user->id;
         $email  = $user->email;
 
-        // ── Level 0: Auth / session tokens ──────────────────────────────────
+        // Level 0: Auth / session tokens
         DB::table('email_verification_tokens')->where('email', $email)->delete();
         DB::table('password_reset_tokens')->where('email', $email)->delete();
 
-        // ── Level 0: Notifications ───────────────────────────────────────────
+        // Level 0: Notifications
         DB::table('notifications')
             ->where('notifiable_id', $userId)
             ->where('notifiable_type', User::class)
             ->delete();
 
-        // ── Level 1: Collect organization IDs owned by this user ─────────────
+        // Level 1: Collect organization IDs owned by this user
         $orgIds = DB::table('organizations')
             ->where('user_id', $userId)
             ->pluck('id')
             ->toArray();
 
         if (!empty($orgIds)) {
-            // ── Level 2: Collect workspace IDs inside those organizations ────
+            // Level 2: Collect workspace IDs inside those organizations
             $workspaceIds = DB::table('workspaces')
                 ->whereIn('organization_id', $orgIds)
                 ->pluck('id')
                 ->toArray();
 
             if (!empty($workspaceIds)) {
-                // ── Level 3: Collect project IDs inside those workspaces ─────
+                // Level 3: Collect project IDs inside those workspaces
                 $projectIds = DB::table('projects')
                     ->whereIn('workspace_id', $workspaceIds)
                     ->pluck('id')
                     ->toArray();
 
                 if (!empty($projectIds)) {
-                    // ── Level 4: Delete tasks inside those projects ──────────
+                    // Level 4: Delete tasks inside those projects
                     DB::table('tasks')->whereIn('project_id', $projectIds)->delete();
 
-                    // ── Level 3: Delete projects ─────────────────────────────
+                    // Level 3: Delete projects
                     DB::table('projects')->whereIn('id', $projectIds)->delete();
                 }
 
-                // ── Level 2: Delete workspaces ────────────────────────────────
+                // Level 2: Delete workspaces
                 DB::table('workspaces')->whereIn('id', $workspaceIds)->delete();
             }
 
-            // ── Level 1: Remove organization members, then organizations ──────
+            // Level 1: Remove organization members, then organizations
             DB::table('organization_members')->whereIn('organization_id', $orgIds)->delete();
             DB::table('organizations')->whereIn('id', $orgIds)->delete();
         }
 
-        // ── Remove the user from any organizations they were a member of ──────
+        // Remove the user from any organizations they were a member of
         // (covers orgs they joined but didn't own)
         DB::table('organization_members')->where('user_id', $userId)->delete();
 
-        // ── Spatie roles & permissions ────────────────────────────────────────
+        // Spatie roles & permissions
         $user->roles()->detach();
         $user->permissions()->detach();
 
-        // ── Finally delete the user record ────────────────────────────────────
+        // Finally delete the user record
         $user->delete();
     }
 }
