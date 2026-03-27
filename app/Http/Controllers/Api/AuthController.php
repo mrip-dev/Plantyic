@@ -277,11 +277,12 @@ class AuthController extends Controller
     /**
      * Login user
      */
-    public function login(Request $request)
+    public function login(Request $request, TeamService $teamService)
     {
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
             'password' => 'required|string',
+            'invitation_token' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -318,6 +319,15 @@ class AuthController extends Controller
                     'user' => $this->getUserResponse($user)
                 ], 403);
             }
+        }
+
+        try {
+            $teamService->acceptPendingInvitationsForUser($user, $request->invitation_token);
+        } catch (InvalidArgumentException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 422);
         }
 
         // Update last login

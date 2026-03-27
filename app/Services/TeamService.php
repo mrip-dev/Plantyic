@@ -74,27 +74,30 @@ class TeamService
 
         $existingMember = TeamMember::where('team_id', $team->id)
             ->where('email', $email)
-            ->exists();
+            ->first();
 
-        if ($existingMember) {
-            throw new InvalidArgumentException('This email is already a member of the team.');
+        if ($existingMember && $existingMember->invitation_status === 'accepted') {
+            throw new InvalidArgumentException('This email is already an active member of the team.');
         }
 
-        $existingUser = User::where('email', $email)->first();
-        if ($existingUser) {
-            $updatedTeam = $this->attachUserToTeam($team, $existingUser, $name);
-            $updatedProject = null;
-
-            if ($project) {
-                $this->assignProject($team, $project);
-                $updatedProject = $this->attachUserToProject($project, $existingUser);
-            }
-
-            return [
-                'type' => 'existing_user',
-                'team' => $updatedTeam,
-                'project' => $updatedProject,
-            ];
+        if (!$existingMember) {
+            TeamMember::create([
+                'team_id' => $team->id,
+                'email' => $email,
+                'name' => $name,
+                'role' => 'member',
+                'department' => null,
+                'status' => 'pending',
+                'tasks_assigned' => 0,
+                'tasks_completed' => 0,
+                'invitation_status' => 'pending',
+            ]);
+        } else {
+            $existingMember->update([
+                'name' => $name,
+                'status' => 'pending',
+                'invitation_status' => 'pending',
+            ]);
         }
 
         $token = Str::random(64);
@@ -151,6 +154,7 @@ class TeamService
             'type' => 'invited',
             'invite_email' => $email,
             'registration_link' => $registrationLink,
+            'is_registered_user' => User::where('email', $email)->exists(),
             'email_sent' => $emailSent,
             'mail_error' => $mailError,
         ];
